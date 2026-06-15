@@ -1,0 +1,60 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: |
+  This template creates a static website application deployed with Apache Web Server on AWS Elastic Compute Cloud (EC2) Instance using AWS Cloudformation Service
+
+Parameters:
+  LatestAmiId:
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: '/aws/service/ami-amazon-linux-latest/al2023-ami-minimal-kernel-default-x86_64'
+    
+  KeyPairName:
+    Type: 'AWS::EC2::KeyPair::KeyName'
+    Description: Select your existing EC2 Key Pair for SSH access
+
+Resources:
+  Instance:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      InstanceType: 't2.micro'
+      ImageId: !Ref LatestAmiId
+      KeyName: !Ref KeyPairName
+      SecurityGroupIds: 
+      - !Ref MyCfnSG
+      Tags:
+        - Key: Name
+          Value: !Sub "Web Server of ${AWS::StackName}"
+      UserData:
+        Fn::Base64: |
+          #!/bin/bash
+          dnf update -y
+
+          dnf install httpd -y
+          systemctl start httpd
+          systemctl enable httpd
+
+          cd /var/www/html
+          
+          wget https://raw.githubusercontent.com/yaroslavom/CfnTemplate-Kittens/main/static-web/index.html 
+          wget https://raw.githubusercontent.com/yaroslavom/CfnTemplate-Kittens/main/static-web/cat0.jpg 
+          wget https://raw.githubusercontent.com/yaroslavom/CfnTemplate-Kittens/main/static-web/cat1.jpg 
+          wget https://raw.githubusercontent.com/yaroslavom/CfnTemplate-Kittens/main/static-web/cat2.jpg 
+      
+  MyCfnSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allows Http vs SSH
+      SecurityGroupIngress: 
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          
+Outputs:
+  WebsiteURL:
+    Description: URL of the Kittens Carousel Static Website
+    Value: !Sub 'http://${Instance.PublicDnsName}'
+
